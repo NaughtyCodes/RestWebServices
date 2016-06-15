@@ -16,8 +16,13 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.CacheControl;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.EntityTag;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 
 import net.sf.ehcache.hibernate.HibernateUtil;
 
@@ -58,8 +63,12 @@ public class Application {
 	@GET
 	@Path("/Select/Customer/{id}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public String sel(	@PathParam("id") Integer id,
-						@HeaderParam("authorization") String authKey) throws IOException{
+	public Response sel(	@PathParam("id") Integer id,
+						@HeaderParam("authorization") String authKey,
+						@Context Request req) throws IOException{
+		CacheControl cc = new CacheControl();
+		cc.setMaxAge(180);
+		
 		System.out.println(authKey);
         String[] authParts = authKey.split("\\s+");
         //String authMsg = authParts[1];
@@ -68,11 +77,28 @@ public class Application {
 		CustomerCURD c = new CustomerCURD();
 		Customer customer = new Customer();
 		customer.setId(id);
-		String result = c.getById(customer).toString();
-		if (result.length()==0)
+		customer = c.getById(customer).get(0);
+		String fname = customer.getFirstName();
+		System.out.println(fname);
+		
+		//String result = c.getById(customer).toString();
+		//Calculate the ETag on last modified date of user resource  
+		EntityTag etag = new EntityTag(fname.hashCode()+"");		
+		System.out.println("Etag_:"+etag);
+		Response.ResponseBuilder rb = null;
+		rb = req.evaluatePreconditions();
+		//If ETag matches the rb will be non-null; 
+        //Use the rb to return the response without any further processing
+		if(rb != null){
+			return rb.cacheControl(cc).tag(etag).build();
+		}
+
+		rb = Response.ok((customer)).cacheControl(cc).tag(etag);
+		return rb.build();		
+		/*if (result.length()==0)
 			return "NO RECORD FOUND....!!";
 		else 
-			return result;
+			return result;*/
 	}
 	
 	@GET
