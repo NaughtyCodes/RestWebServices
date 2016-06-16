@@ -1,8 +1,11 @@
 package org.rest.app;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.util.Date;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 //import java.sql.Date;
 import java.sql.SQLData;
 import java.text.ParseException;
@@ -11,8 +14,10 @@ import java.util.Base64;
 import java.util.List;
 
 
+import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -23,6 +28,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.xml.bind.DatatypeConverter;
 
 import net.sf.ehcache.hibernate.HibernateUtil;
 
@@ -38,11 +44,14 @@ import org.rest.services.resource.Customer;
 import sun.misc.BASE64Decoder;
 import org.apache.log4j.Logger;
 
+import com.sun.jersey.spi.resource.Singleton;
 
+@Singleton
 @Path("/Application")
 public class Application {
 	
-	
+    private String data = "Some Data";
+    private Date lastModified = new Date();
 	
 	@GET
 	@Path("/Select/Customer/Json")
@@ -63,11 +72,9 @@ public class Application {
 	@GET
 	@Path("/Select/Customer/{id}")
 	@Produces(MediaType.APPLICATION_JSON)
-	public Response sel(	@PathParam("id") Integer id,
+	public String sel(@PathParam("id") Integer id,
 						@HeaderParam("authorization") String authKey,
 						@Context Request req) throws IOException{
-		CacheControl cc = new CacheControl();
-		cc.setMaxAge(180);
 		
 		System.out.println(authKey);
         String[] authParts = authKey.split("\\s+");
@@ -77,29 +84,89 @@ public class Application {
 		CustomerCURD c = new CustomerCURD();
 		Customer customer = new Customer();
 		customer.setId(id);
+		String result = c.getById(customer).toString();
+		if (result.length()==0)
+			return "NO RECORD FOUND....!!";
+		else 
+			return result;
+	}
+	
+	//------------------------------------
+	
+	@GET
+	@Produces("text/plain")
+	public Response get() {
+	    CacheControl cc = new CacheControl();
+	    cc.setMaxAge(10);
+	    return Response.ok("Some Data").cacheControl(cc).build();
+	}
+	
+	 
+
+	 
+	    @GET
+	    @Path("/last-modified")
+	    @Produces("text/plain")
+	    public Response get(@Context Request request) {
+
+	        ResponseBuilder builder = request.evaluatePreconditions(lastModified);
+	        if (builder != null) {
+	        	System.out.println("from client");
+	            return builder.build();
+	        }
+	        System.out.println(lastModified);
+	        System.out.println("from server");
+	        return Response.ok(data).lastModified(lastModified).build();
+	    }
+	 
+	    @POST
+	    @Consumes("text/plain")
+	    public Response post(String data) {
+	        this.data = data;
+	        lastModified = new Date();
+	        return Response.noContent().build();
+	    }
+
+	    //-----------------------
+	
+	@GET
+	@Path("/Select/Customer/Etag/{id}")
+	@Produces(MediaType.APPLICATION_JSON)
+	public Response selEtag(@PathParam("id") Integer id,
+						    @Context Request req) throws IOException, NoSuchAlgorithmException{
+		CacheControl cc = new CacheControl();
+		cc.setMaxAge(180);
+		
+	    
+		CustomerCURD c = new CustomerCURD();
+		Customer customer = new Customer();
+		customer.setId(id);
 		customer = c.getById(customer).get(0);
 		String fname = customer.getFirstName();
-		System.out.println(fname);
-		
-		//String result = c.getById(customer).toString();
+		MessageDigest digest = MessageDigest.getInstance("MD5");
+	    byte[] hash = digest.digest(fname.getBytes(StandardCharsets.UTF_8));
+	    String hex = DatatypeConverter.printHexBinary(hash);
 		//Calculate the ETag on last modified date of user resource  
-		EntityTag etag = new EntityTag(fname.hashCode()+"");		
+		EntityTag etag = new EntityTag(hex);		
 		System.out.println("Etag_:"+etag);
 		Response.ResponseBuilder rb = null;
-		rb = req.evaluatePreconditions();
+		rb = req.evaluatePreconditions(etag);
 		//If ETag matches the rb will be non-null; 
         //Use the rb to return the response without any further processing
 		if(rb != null){
-			return rb.cacheControl(cc).tag(etag).build();
+			System.out.println("from cache -------->>");
+			return Response.notModified().entity(customer).type(MediaType.APPLICATION_JSON).build();
 		}
 
 		rb = Response.ok((customer)).cacheControl(cc).tag(etag);
+		System.out.println("from server -------->>");
 		return rb.build();		
 		/*if (result.length()==0)
 			return "NO RECORD FOUND....!!";
 		else 
 			return result;*/
 	}
+	
 	
 	@GET
 	@Path("/Search/Customer/{selChar}")
