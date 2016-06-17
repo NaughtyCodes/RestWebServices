@@ -127,6 +127,12 @@ public class Application {
 	        return Response.noContent().build();
 	    }
 
+	    @GET
+	    @Path("/auth")
+	    @Produces("text/plain")
+	    public String auth(){
+	    	return "hiiiiiii auth is working";
+	    }
 	    //-----------------------
 	
 	@GET

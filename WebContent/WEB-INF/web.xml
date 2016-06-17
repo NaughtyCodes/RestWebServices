@@ -34,8 +34,9 @@ xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns
   </filter>
   <filter-mapping>
     <filter-name>AuthenticationFilter</filter-name>
-    <url-pattern>/rest/*</url-pattern>
+    <url-pattern>/Application/auth/*</url-pattern>
   </filter-mapping>
+  
   <display-name>RestWebServices</display-name>
   <welcome-file-list>
     <welcome-file>index.html</welcome-file>
