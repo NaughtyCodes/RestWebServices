@@ -1,8 +1,16 @@
 package org.rest.app;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.Date;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -15,6 +23,7 @@ import java.util.List;
 
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -29,7 +38,6 @@ import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.xml.bind.DatatypeConverter;
-
 import net.sf.ehcache.hibernate.HibernateUtil;
 
 import org.hibernate.Query;
@@ -44,6 +52,8 @@ import org.rest.services.resource.Customer;
 import sun.misc.BASE64Decoder;
 import org.apache.log4j.Logger;
 
+import com.sun.jersey.core.header.FormDataContentDisposition;
+import com.sun.jersey.multipart.FormDataParam;
 import com.sun.jersey.spi.resource.Singleton;
 
 @Singleton
@@ -52,6 +62,7 @@ public class Application {
 	
     private String data = "Some Data";
     private Date lastModified = new Date();
+	private InputStream uploadFileStream;
 	
 	@GET
 	@Path("/Select/Customer/Json")
@@ -128,7 +139,7 @@ public class Application {
 	    }
 
 	    @GET
-	    @Path("/auth")
+	    @Path("/Auth")
 	    @Produces("text/plain")
 	    public String auth(){
 	    	return "hiiiiiii auth is working";
@@ -233,4 +244,50 @@ public class Application {
 		c.delete(customer);
 		return "record deleted successfully id = "+id;
 	}
+	
+	@POST
+	@Path("/Auth/Forms/Data")
+	@Produces(MediaType.TEXT_PLAIN)
+	public String form01(
+			@FormParam("name") String name,
+			@FormParam("age") String age,
+			@FormParam("city") String city
+			){
+		
+		String inData = "Name_:"+name+"\n"
+				+"Age_:"+age+"\n"
+				+"City_:"+city+"\n";
+		System.out.println(inData);
+		return inData;
+	}
+
+	@POST
+	@Path("/Auth/Forms/Upload")
+	@Produces(MediaType.TEXT_PLAIN)
+	@Consumes(MediaType.MULTIPART_FORM_DATA) 
+	public String formUpload01(
+			@FormDataParam("file") InputStream uploadFileStream,
+			@FormDataParam("file") FormDataContentDisposition fileDetail 
+			) throws IOException{
+		OutputStream out = new FileOutputStream(new File("e:\\upload.txt"));
+		int read=0;
+		byte[] b = new byte[1024];
+		java.nio.file.Path path = Paths.get("e:\\upload.txt");
+		
+		System.out.println(path.toString());
+		while((read = uploadFileStream.read(b))!=-1){
+			out.write(b, 0, read);
+		}
+		out.flush();
+		out.close();
+		URL url = Application.class.getProtectionDomain().getCodeSource().getLocation();
+		System.out.println(url);
+		java.nio.file.Path source = Paths.get("E:\\upload.txt");
+		java.nio.file.Path target = Paths.get("D:\\GitHub\\fileOut.txt");
+		java.nio.file.Path f = Files.move(source,target,StandardCopyOption.REPLACE_EXISTING);
+		System.out.println(fileDetail.toString());
+		return fileDetail.toString();
+	}
+
 }
+

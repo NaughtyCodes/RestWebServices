@@ -1,6 +1,11 @@
 # RestWebServices
 Rest Web Services example with basic security 
 
+Auth url
+	http://localhost:10905/RestWebServices/Application/auth/
+	[Authorization	Basic YWRtaW46cGFzc3dvcmQ=]
+	header param "Authorization" username: admin and password: password
+	
 Customer 
 	Create Customer
 	Insert Customer
